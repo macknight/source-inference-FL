@@ -39,8 +39,10 @@ class SIA(object):
                 net.eval()
                 for id, (data, target) in enumerate(dataset_local):
                     if self.args.gpu != -1:
-                        data, target = data.cuda(), target.cuda()
-                        idx_tensor = idx_tensor.cuda()
+                        # data, target = data.cuda(), target.cuda()
+                        # idx_tensor = idx_tensor.cuda()
+                        data, target = data.to('cpu'), target.to('cpu')
+                        idx_tensor = idx_tensor.to('cpu')
                     log_prob = net(data)
 
                     # prediction loss based attack: get the prediction loss of the target training sample
