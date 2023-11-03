@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import torch
+import openfhe as fhe
 
 from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
@@ -11,6 +12,8 @@ from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
 
 if __name__ == '__main__':
+    fhe.setup()
+
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
@@ -39,28 +42,39 @@ if __name__ == '__main__':
     # copy weights
     w_glob = net_glob.state_dict()
 
+    #encrypt the global weights
+    encrypted_w_glob = {}
+    for key, value in w_glob.items():
+        encrypted_w_glob[key] = fhe.encrypt(value)
+
     # training
     if args.all_clients:
         print("Aggregation over all clients")
         w_locals = [w_glob for i in range(args.num_users)]
+        encrypted_w_locals = [encrypted_w_glob for i in range(args.num_users)]
 
     best_att_acc = 0
     for iter in range(args.epochs):
         loss_locals = []
         if not args.all_clients:
             w_locals = []
+            encrypted_w_locals = []
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
 
-            w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
+            local_net = copy.deepcopy(net_glob).to(args.device)
+            local_net.load_state_dict({key: fhe.decrypt(value) for key, value in encrypted_w_glob.items()})
+            w, loss = local.train(net=local_net)
 
             if args.all_clients:
                 w_locals[idx] = copy.deepcopy(w)
+                encrypted_w_locals[idx] = {key: fhe.encrypt(value) for key, value in w_locals[idx].items()}
             else:
                 w_locals.append(copy.deepcopy(w))
+                encrypted_w_locals.append({key: fhe.encrypt(value) for key, value in w_locals[idx].items()})
             loss_locals.append(copy.deepcopy(loss))
 
 
@@ -70,7 +84,23 @@ if __name__ == '__main__':
         best_att_acc = max(best_att_acc, attack_acc)
 
         # update global weights
-        w_glob = FedAvg(w_locals)
+        #plaintext
+        #w_glob = FedAvg(w_locals)
+        #ciphertext for FedAvg
+        encrypted_w_glob = {}
+        for key in w_locals[0].keys():
+            # 对每个客户端的相同键的加密权重参数进行同态加法
+            sum_encrypted_weights = fhe.encrypt(0.0)  # 初始化为零
+            for encrypted_w_local in encrypted_w_locals:
+                sum_encrypted_weights = fhe.add(sum_encrypted_weights, encrypted_w_local[key])
+            # 计算平均值
+            avg_encrypted_weight = fhe.divide(sum_encrypted_weights, len(encrypted_w_locals))  # 平均操作
+            # 将平均加密权重参数添加到全局加密权重参数中
+            encrypted_w_glob[key] = avg_encrypted_weight
+
+        # 此时，encrypted_w_glob 包含了加密的全局平均权重参数
+        # 解密全局权重参数
+        w_glob = {key: fhe.decrypt(value) for key, value in encrypted_w_glob.items()}
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
@@ -78,7 +108,6 @@ if __name__ == '__main__':
         # print loss
         loss_avg = sum(loss_locals) / len(loss_locals)
         print('Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
-
 
 
     # testing
