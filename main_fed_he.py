@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
     # copy weights
     w_glob = net_glob.state_dict()
+    print('1')
 
     # Setup TenSEAL context
     context = ts.context(
@@ -53,17 +54,19 @@ if __name__ == '__main__':
             )
     context.generate_galois_keys()
     context.global_scale = 2**40
-
+    print('2')
     #encrypt the global weights
     encrypted_w_glob = {}
     for key, value in w_glob.items():
         encrypted_w_glob[key] = ts.ckks_tensor(context, value)
+    print('3')
 
     # training
     if args.all_clients:
         print("Aggregation over all clients")
         w_locals = [w_glob for i in range(args.num_users)]
         encrypted_w_locals = [encrypted_w_glob for i in range(args.num_users)]
+    print('4')
 
     best_att_acc = 0
     for iter in range(args.epochs):
@@ -91,9 +94,9 @@ if __name__ == '__main__':
 
 
         # implement the source inference attack
-        SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
-        attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
-        best_att_acc = max(best_att_acc, attack_acc)
+        ## SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
+        ## attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
+        ## best_att_acc = max(best_att_acc, attack_acc)
 
         # update global weights
         # encrypted_w_glob = {}
@@ -115,7 +118,7 @@ if __name__ == '__main__':
         loss_avg = sum(loss_locals) / len(loss_locals)
         print('Epoch Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
 
-
+    print('5')
     # testing
     net_glob.eval()
     acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
