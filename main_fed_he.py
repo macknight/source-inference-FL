@@ -1,7 +1,8 @@
 import copy
 import numpy as np
 import torch
-from openfhe import *
+# from openfhe import *
+import tenseal as ts
 
 from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
@@ -10,6 +11,10 @@ from models.Update import LocalUpdate
 from models.test import test_fun
 from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
+
+#define a function called "decrypt"
+def decrypt(enc):
+    return enc.decrypt().tolist()
 
 if __name__ == '__main__':
     # parse args
@@ -40,10 +45,19 @@ if __name__ == '__main__':
     # copy weights
     w_glob = net_glob.state_dict()
 
+    # Setup TenSEAL context
+    context = ts.context(
+                ts.SCHEME_TYPE.CKKS,
+                poly_modulus_degree=16384,
+                coeff_mod_bit_sizes=[60, 40, 40, 40, 60]
+            )
+    context.generate_galois_keys()
+    context.global_scale = 2**40
+
     #encrypt the global weights
     encrypted_w_glob = {}
     for key, value in w_glob.items():
-        encrypted_w_glob[key] = fhe.encrypt(value)
+        encrypted_w_glob[key] = ts.ckks_tensor(context, value)
 
     # training
     if args.all_clients:
@@ -64,15 +78,15 @@ if __name__ == '__main__':
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
 
             local_net = copy.deepcopy(net_glob).to(args.device)
-            local_net.load_state_dict({key: fhe.decrypt(value) for key, value in encrypted_w_glob.items()})
+            local_net.load_state_dict({key: decrypt(value) for key, value in encrypted_w_glob.items()})
             w, loss = local.train(net=local_net)
 
             if args.all_clients:
                 w_locals[idx] = copy.deepcopy(w)
-                encrypted_w_locals[idx] = {key: fhe.encrypt(value) for key, value in w_locals[idx].items()}
+                encrypted_w_locals[idx] = {key: ts.ckks_tensor(context, value) for key, value in w_locals[idx].items()}
             else:
                 w_locals.append(copy.deepcopy(w))
-                encrypted_w_locals.append({key: fhe.encrypt(value) for key, value in w_locals[idx].items()})
+                encrypted_w_locals.append({key: ts.ckks_tensor(context, value) for key, value in w_locals[idx].items()})
             loss_locals.append(copy.deepcopy(loss))
 
 
@@ -82,23 +96,17 @@ if __name__ == '__main__':
         best_att_acc = max(best_att_acc, attack_acc)
 
         # update global weights
-        #plaintext
-        #w_glob = FedAvg(w_locals)
-        #ciphertext for FedAvg
         # encrypted_w_glob = {}
-        for key in w_locals[0].keys():
-            # 对每个客户端的相同键的加密权重参数进行同态加法
-            sum_encrypted_weights = fhe.encrypt(0.0)  # 初始化为零
-            for encrypted_w_local in encrypted_w_locals:
-                sum_encrypted_weights = fhe.add(sum_encrypted_weights, encrypted_w_local[key])
-            # 计算平均值
-            avg_encrypted_weight = fhe.divide(sum_encrypted_weights, len(encrypted_w_locals))  # 平均操作
-            # 将平均加密权重参数添加到全局加密权重参数中
-            encrypted_w_glob[key] = avg_encrypted_weight
+        for key in w_locals[0].keys(): #Perform homomorphic addition of encrypted weight parameters with the same keys for each client.
+            sum_encrypted_weights = encrypted_w_locals[0]
+            for encrypted_w_local in encrypted_w_locals[1:]:
+                sum_encrypted_weights = sum_encrypted_weights + encrypted_w_local
+            avg_encrypted_weight = sum_encrypted_weights * (len(encrypted_w_locals))  #calculate average
+            encrypted_w_glob[key] = avg_encrypted_weight #Put the average encrypted weight parameters to the global encrypted weight parameters.
 
-        # 此时，encrypted_w_glob 包含了加密的全局平均权重参数
-        # 解密全局权重参数
-        w_glob = {key: fhe.decrypt(value) for key, value in encrypted_w_glob.items()}
+        # At this point, encrypted_w_glob contains the encrypted global average weight parameters.
+        # Decrypt the global weight parameters.
+        w_glob = {key: decrypt(value) for key, value in encrypted_w_glob.items()}
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
