@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import torch
-import openfhe as fhe
+from openfhe import *
 
 from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
@@ -12,8 +12,6 @@ from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
 
 if __name__ == '__main__':
-    fhe.setup()
-
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
@@ -107,7 +105,7 @@ if __name__ == '__main__':
         acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
         # print loss
         loss_avg = sum(loss_locals) / len(loss_locals)
-        print('Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
+        print('Epoch Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
 
 
     # testing
