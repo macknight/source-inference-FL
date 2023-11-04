@@ -87,7 +87,7 @@ if __name__ == '__main__':
         #plaintext
         #w_glob = FedAvg(w_locals)
         #ciphertext for FedAvg
-        encrypted_w_glob = {}
+        # encrypted_w_glob = {}
         for key in w_locals[0].keys():
             # 对每个客户端的相同键的加密权重参数进行同态加法
             sum_encrypted_weights = fhe.encrypt(0.0)  # 初始化为零
@@ -121,5 +121,6 @@ if __name__ == '__main__':
     print('Experimental result summary:')
     print("Training accuracy of the joint model: {:.2f}".format(acc_train))
     print("Testing accuracy of the joint model: {:.2f}".format(acc_test))
+    
     print('Random guess baseline of source inference : {:.2f}'.format(1.0/args.num_users*100))
     print('Highest prediction loss based source inference accuracy: {:.2f}'.format(best_att_acc))
