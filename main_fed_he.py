@@ -3,6 +3,7 @@ import numpy as np
 import torch
 # from openfhe import *
 import tenseal as ts
+import sys
 
 from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
@@ -55,10 +56,17 @@ if __name__ == '__main__':
     context.generate_galois_keys()
     context.global_scale = 2**40
     print('2')
+
+    # for key, value in w_glob.items():
+    #     print(type(key))
+    #     print(type(value))
+
+
     #encrypt the global weights
     encrypted_w_glob = {}
     for key, value in w_glob.items():
         encrypted_w_glob[key] = ts.ckks_tensor(context, value)
+
     print('3')
 
     # training
@@ -81,7 +89,7 @@ if __name__ == '__main__':
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
 
             local_net = copy.deepcopy(net_glob).to(args.device)
-            local_net.load_state_dict({key: decrypt(value) for key, value in encrypted_w_glob.items()})
+            local_net.load_state_dict({key: torch.tensor(decrypt(value)) for key, value in encrypted_w_glob.items()})
             w, loss = local.train(net=local_net)
 
             if args.all_clients:
@@ -109,7 +117,7 @@ if __name__ == '__main__':
 
         # At this point, encrypted_w_glob contains the encrypted global average weight parameters.
         # Decrypt the global weight parameters.
-        w_glob = {key: decrypt(value) for key, value in encrypted_w_glob.items()}
+        w_glob = {key: torch.tensor(decrypt(value)) for key, value in encrypted_w_glob.items()}
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)

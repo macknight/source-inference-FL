@@ -96,3 +96,10 @@ encrypted_tensor2 = ts.ckks_tensor(context, plain2)
 
 result = encrypted_tensor1 + encrypted_tensor2 #addition
 print(decrypt(result)) # ~ [4, 4, 4, 4, 4], correct
+
+print(type(decrypt(result)))
+
+print(type(result.decrypt()))
+
+torch_tensor = torch.tensor(result.decrypt().tolist())
+print(type(torch_tensor))
