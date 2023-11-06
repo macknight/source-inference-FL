@@ -64,23 +64,25 @@ if __name__ == '__main__':
 
     #encrypt the global weights
     encrypted_w_glob = {}
+    shape_w_glob = {}
+
     for key, value in w_glob.items():
-        encrypted_w_glob[key] = ts.ckks_tensor(context, value)
+        shape_w_glob[key] = value.shape
+        encrypted_w_glob[key] = ts.ckks_vector(context, value.view(-1).tolist())
 
     print('3')
 
     # training
     if args.all_clients:
         print("Aggregation over all clients")
-        w_locals = [w_glob for i in range(args.num_users)]
         encrypted_w_locals = [encrypted_w_glob for i in range(args.num_users)]
+
     print('4')
 
     best_att_acc = 0
     for iter in range(args.epochs):
         loss_locals = []
         if not args.all_clients:
-            w_locals = []
             encrypted_w_locals = []
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
@@ -89,15 +91,13 @@ if __name__ == '__main__':
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
 
             local_net = copy.deepcopy(net_glob).to(args.device)
-            local_net.load_state_dict({key: torch.tensor(decrypt(value)) for key, value in encrypted_w_glob.items()})
+            local_net.load_state_dict({key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()})
             w, loss = local.train(net=local_net)
 
             if args.all_clients:
-                w_locals[idx] = copy.deepcopy(w)
-                encrypted_w_locals[idx] = {key: ts.ckks_tensor(context, value) for key, value in w_locals[idx].items()}
+                encrypted_w_locals[idx] = {key: ts.ckks_vector(context, value.view(-1).tolist()) for key, value in copy.deepcopy(w).items()}
             else:
-                w_locals.append(copy.deepcopy(w))
-                encrypted_w_locals.append({key: ts.ckks_tensor(context, value) for key, value in w_locals[idx].items()})
+                encrypted_w_locals.append({key: ts.ckks_vector(context, value.view(-1).tolist()) for key, value in copy.deepcopy(w).items()})
             loss_locals.append(copy.deepcopy(loss))
 
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
         # update global weights
         # encrypted_w_glob = {}
-        for key in w_locals[0].keys(): #Perform homomorphic addition of encrypted weight parameters with the same keys for each client.
+        for key in encrypted_w_locals[0].keys(): #Perform homomorphic addition of encrypted weight parameters with the same keys for each client.
             sum_encrypted_weights = encrypted_w_locals[0]
             for encrypted_w_local in encrypted_w_locals[1:]:
                 sum_encrypted_weights = sum_encrypted_weights + encrypted_w_local
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
         # At this point, encrypted_w_glob contains the encrypted global average weight parameters.
         # Decrypt the global weight parameters.
-        w_glob = {key: torch.tensor(decrypt(value)) for key, value in encrypted_w_glob.items()}
+        w_glob = {key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()}
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
