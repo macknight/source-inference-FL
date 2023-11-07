@@ -47,11 +47,16 @@ if __name__ == '__main__':
     w_glob = net_glob.state_dict()
     
     # Setup TenSEAL context
+    # context = ts.context(
+    #             ts.SCHEME_TYPE.CKKS,
+    #             poly_modulus_degree=16384,
+    #             coeff_mod_bit_sizes=[60, 40, 40, 40, 60]
+    # )
     context = ts.context(
                 ts.SCHEME_TYPE.CKKS,
-                poly_modulus_degree=16384,
-                coeff_mod_bit_sizes=[60, 40, 40, 40, 60]
-            )
+                poly_modulus_degree=8192,
+                coeff_mod_bit_sizes=[60, 40, 40, 60]
+    )
     context.generate_galois_keys()
     context.global_scale = 2**40
 
@@ -87,7 +92,7 @@ if __name__ == '__main__':
             local_net = copy.deepcopy(net_glob).to(args.device)
             local_net.load_state_dict({key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()})
             w, loss = local.train(net=local_net)
-            # print(f'client{idx}:layer_input.bias[0]={w["layer_input.bias"][0]}')
+            # print(f'client{idx}:layer_input.weight[199][59]={w["layer_input.weight"][199][59]}')
 
             if args.all_clients:
                 encrypted_w_locals[idx] = {key: ts.ckks_vector(context, value.view(-1).tolist()) for key, value in copy.deepcopy(w).items()}
@@ -113,7 +118,7 @@ if __name__ == '__main__':
         # At this point, encrypted_w_glob contains the encrypted global average weight parameters.
         # Decrypt the global weight parameters.
         w_glob = {key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()}
-        # print(f'w_glob:layer_input.bias[0]={w_glob["layer_input.bias"][0]}')
+        # print(f'w_glob:layer_input.weight[199][59]={w_glob["layer_input.weight"][199][59]}')
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
