@@ -15,7 +15,7 @@ from utils.options import args_parser
 
 #define a function called "decrypt"
 def decrypt(enc):
-    return enc.decrypt().tolist()
+    return enc.decrypt()
 
 if __name__ == '__main__':
     # parse args
@@ -45,8 +45,7 @@ if __name__ == '__main__':
 
     # copy weights
     w_glob = net_glob.state_dict()
-    print('1')
-
+    
     # Setup TenSEAL context
     context = ts.context(
                 ts.SCHEME_TYPE.CKKS,
@@ -55,12 +54,11 @@ if __name__ == '__main__':
             )
     context.generate_galois_keys()
     context.global_scale = 2**40
-    print('2')
 
     # for key, value in w_glob.items():
-    #     print(type(key))
-    #     print(type(value))
-
+    #     print(key)
+    #     print(value)
+    # sys.exit(-1)
 
     #encrypt the global weights
     encrypted_w_glob = {}
@@ -70,14 +68,10 @@ if __name__ == '__main__':
         shape_w_glob[key] = value.shape
         encrypted_w_glob[key] = ts.ckks_vector(context, value.view(-1).tolist())
 
-    print('3')
-
     # training
     if args.all_clients:
         print("Aggregation over all clients")
         encrypted_w_locals = [encrypted_w_glob for i in range(args.num_users)]
-
-    print('4')
 
     best_att_acc = 0
     for iter in range(args.epochs):
@@ -93,6 +87,7 @@ if __name__ == '__main__':
             local_net = copy.deepcopy(net_glob).to(args.device)
             local_net.load_state_dict({key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()})
             w, loss = local.train(net=local_net)
+            # print(f'client{idx}:layer_input.bias[0]={w["layer_input.bias"][0]}')
 
             if args.all_clients:
                 encrypted_w_locals[idx] = {key: ts.ckks_vector(context, value.view(-1).tolist()) for key, value in copy.deepcopy(w).items()}
@@ -102,22 +97,23 @@ if __name__ == '__main__':
 
 
         # implement the source inference attack
-        ## SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
-        ## attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
-        ## best_att_acc = max(best_att_acc, attack_acc)
+        # SIA_attack = SIA(args=args, w_locals=encrypted_w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user) #plaintext is w_locals
+        # attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
+        # best_att_acc = max(best_att_acc, attack_acc)
 
         # update global weights
         # encrypted_w_glob = {}
-        for key in encrypted_w_locals[0].keys(): #Perform homomorphic addition of encrypted weight parameters with the same keys for each client.
-            sum_encrypted_weights = encrypted_w_locals[0]
+        for key in encrypted_w_locals[0].keys():
+            sum_encrypted_weights = encrypted_w_locals[0][key]
             for encrypted_w_local in encrypted_w_locals[1:]:
-                sum_encrypted_weights = sum_encrypted_weights + encrypted_w_local
-            avg_encrypted_weight = sum_encrypted_weights * (len(encrypted_w_locals))  #calculate average
+                sum_encrypted_weights = sum_encrypted_weights + encrypted_w_local[key]
+            avg_encrypted_weight = sum_encrypted_weights * (1/len(encrypted_w_locals))  #calculate average, fix error: *1/n instead of *n
             encrypted_w_glob[key] = avg_encrypted_weight #Put the average encrypted weight parameters to the global encrypted weight parameters.
 
         # At this point, encrypted_w_glob contains the encrypted global average weight parameters.
         # Decrypt the global weight parameters.
         w_glob = {key: torch.tensor(decrypt(value)).view(shape_w_glob[key]) for key, value in encrypted_w_glob.items()}
+        # print(f'w_glob:layer_input.bias[0]={w_glob["layer_input.bias"][0]}')
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
@@ -126,7 +122,6 @@ if __name__ == '__main__':
         loss_avg = sum(loss_locals) / len(loss_locals)
         print('Epoch Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
 
-    print('5')
     # testing
     net_glob.eval()
     acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
