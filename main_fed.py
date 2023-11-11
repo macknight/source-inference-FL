@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import torch
+import sys
 
 from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
@@ -14,9 +15,13 @@ if __name__ == '__main__':
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
-    print(f'args.device:', {args.device})
+    # print(f'args.device:', {args.device})
     # load dataset and split data for users
     dataset_train, dataset_test, dict_party_user, dict_sample_user = get_dataset(args)
+
+    #data is X dimension=60 classified into Y whose classes=10
+    #dict_party_user is the idx, randomly seperating dataset_train into {num_users}
+    #dict_sample_user is the idx, with each element sized 100 and randomly picked from each dict_party_user element
 
     # build model
     if args.model == 'cnn' and args.dataset == 'MNIST':
@@ -31,6 +36,7 @@ if __name__ == '__main__':
         net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device)
     else:
         exit('Error: unrecognized model')
+    
     empty_net = net_glob
     print('Model architecture:')
     print(net_glob)
