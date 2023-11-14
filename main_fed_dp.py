@@ -11,6 +11,7 @@ from models.Update import LocalUpdate
 from models.test import test_fun
 from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
+from utils.differential_privacy import add_laplace_noise
 
 if __name__ == '__main__':
     # 解析参数
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     print(f'args.device:', {args.device})
     
     # 加载数据集并为用户分割数据
-    dataset_train, dataset_test, dict_party_user, dict_sample_user = get_dataset(args)
+    dataset_train, dataset_test, dict_party_user, dict_sample_user, dict_simulation_user = get_dataset(args)
 
     # 建立模型
     if args.model == 'cnn' and args.dataset == 'MNIST':
@@ -74,12 +75,23 @@ if __name__ == '__main__':
         # update global weights
         privacy_budget = 0.4  # 设置差分隐私隐私预算，根据需要调整
         #DP add noise
+        minimum = []
+        maximum = []
         for w_local in w_locals:
             for key, value in w_local.items():
                 original_shape = value.shape
                 flat_list = value.view(-1).tolist()
-                w_list = BoundedSum(epsilon=privacy_budget, lower_bound=-3, upper_bound=3, dtype="float").quick_result(flat_list)
-                reshaped_tensor = torch.tensor(flat_list).view(original_shape)
+                minimum.append(min(flat_list))
+                maximum.append(max(flat_list))
+
+        for w_local in w_locals:
+            for key, value in w_local.items():
+                original_shape = value.shape
+                flat_list = value.view(-1).tolist()
+                # print(f'flat_list:{flat_list}')
+                noised_list = add_laplace_noise(flat_list, args.epsilon, min(minimum), max(maximum))
+                # print(f'noised_list:{noised_list}')
+                reshaped_tensor = torch.tensor(noised_list).view(original_shape)
                 w_local[key] = reshaped_tensor
 
         #server aggregation

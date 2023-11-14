@@ -17,7 +17,7 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     # print(f'args.device:', {args.device})
     # load dataset and split data for users
-    dataset_train, dataset_test, dict_party_user, dict_sample_user = get_dataset(args)
+    dataset_train, dataset_test, dict_party_user, dict_sample_user, dict_simulation_user = get_dataset(args)
 
     #data is X dimension=60 classified into Y whose classes=10
     #dict_party_user is the idx, randomly seperating dataset_train into {num_users}

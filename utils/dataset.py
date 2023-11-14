@@ -5,7 +5,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from torchvision import datasets, transforms
 
 from utils.sampling import sample_dirichlet_train_data, synthetic_iid
-
+# from utils.sampling import *
 
 def get_dataset(args):
     # mnist dataset: 10 classes, 60000 training examples, 10000 testing examples.
@@ -24,8 +24,7 @@ def get_dataset(args):
         test_dataset = datasets.MNIST(data_dir, train=False, download=True,
                                       transform=apply_transform)
         # sample non-iid data
-        dict_party_user, dict_sample_user = sample_dirichlet_train_data(train_dataset, args.num_users, args.num_samples,
-                                                                        args.alpha)
+        dict_party_user, dict_sample_user, dict_simulation_user = sample_dirichlet_train_data(train_dataset, args.num_users, args.num_samples, args.num_simulations, args.alpha)
 
     elif args.dataset == 'Synthetic' and args.iid == True:
         data_dir = './data/synthetic/synthetic_x_0.npz'
@@ -38,7 +37,7 @@ def get_dataset(args):
         train_dataset = DataLoader(TensorDataset(torch.from_numpy(x_train).float(), torch.from_numpy(y_train).long()))
         test_dataset = DataLoader(TensorDataset(torch.from_numpy(x_val).float(), torch.from_numpy(y_val).long()))
         # sample iid data
-        dict_party_user, dict_sample_user = synthetic_iid(train_dataset, args.num_users, args.num_samples)
+        dict_party_user, dict_sample_user, dict_simulation_user = synthetic_iid(train_dataset, args.num_users, args.num_samples, args.num_simulations)
 
     elif args.dataset == 'Synthetic' and args.iid == False:
 
@@ -52,15 +51,14 @@ def get_dataset(args):
         train_dataset = DataLoader(TensorDataset(torch.from_numpy(x_train).float(), torch.from_numpy(y_train).long()))
         test_dataset = DataLoader(TensorDataset(torch.from_numpy(x_val).float(), torch.from_numpy(y_val).long()))
         # sample non-iid data
-        dict_party_user, dict_sample_user = sample_dirichlet_train_data(train_dataset, args.num_users, args.num_samples,
-                                                                        args.alpha)
+        dict_party_user, dict_sample_user, dict_simulation_user = sample_dirichlet_train_data(train_dataset, args.num_users, args.num_samples, args.num_simulations, args.alpha)
 
     else:
         train_dataset = []
         test_dataset = []
-        dict_party_user, dict_sample_user = {}, {}
+        dict_party_user, dict_sample_user, dict_simulation_user = {}, {}, {}
         print('+' * 10 + 'Error: unrecognized dataset' + '+' * 10)
-    return train_dataset, test_dataset, dict_party_user, dict_sample_user
+    return train_dataset, test_dataset, dict_party_user, dict_sample_user, dict_simulation_user
 
 
 def exp_details(args):
