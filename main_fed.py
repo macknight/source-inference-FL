@@ -51,6 +51,7 @@ if __name__ == '__main__':
         w_locals = [w_glob for i in range(args.num_users)]
 
     best_att_acc = 0
+    att_acc_list = []
     for iter in range(args.epochs):
         loss_locals = []
         if not args.all_clients:
@@ -73,6 +74,7 @@ if __name__ == '__main__':
         # implement the source inference attack
         SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
         attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
+        att_acc_list.append(attack_acc)
         best_att_acc = max(best_att_acc, attack_acc)
 
         # update global weights
@@ -100,3 +102,4 @@ if __name__ == '__main__':
     print("Testing accuracy of the joint model: {:.2f}".format(acc_test))
     print('Random guess baseline of source inference : {:.2f}'.format(1.0/args.num_users*100))
     print('Highest prediction loss based source inference accuracy: {:.2f}'.format(best_att_acc))
+    print('Average prediction loss based source inference accuracy: {:.2f}'.format(sum(att_acc_list) / len(att_acc_list) if att_acc_list else 0))

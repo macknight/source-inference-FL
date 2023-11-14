@@ -91,7 +91,6 @@ class SIA(object):
 
         # calculate source inference attack accuracy
         accuracy_sia = 100.00 * correct_total / len_set
-        print(
-            '\nPrediction loss based source inference attack accuracy: {}/{} ({:.2f}%)\n'.format(correct_total, len_set,
+        print('Prediction loss based source inference attack accuracy: {}/{} ({:.2f}%)'.format(correct_total, len_set,
                                                                                                  accuracy_sia))
         return accuracy_sia

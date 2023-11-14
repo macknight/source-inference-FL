@@ -22,7 +22,7 @@ if __name__ == '__main__':
     # parse
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
-    print(f'args.device:', {args.device})
+    # print(f'args.device:', {args.device})
     
     # Load the data set and split the data for the user
     dataset_train, dataset_test, dict_party_user, dict_sample_user, dict_simulation_user = get_dataset(args)
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     #HE context
     context = ts.context(
                 ts.SCHEME_TYPE.CKKS,
-                poly_modulus_degree=8192, #16384
-                coeff_mod_bit_sizes=[60, 40, 40, 60] #[60, 40, 40, 40, 60]
+                poly_modulus_degree=16384, #16384
+                coeff_mod_bit_sizes=[60, 40, 40, 40, 60] #[60, 40, 40, 40, 60]
     )
     context.generate_galois_keys()
     context.global_scale = 2**40
@@ -50,8 +50,8 @@ if __name__ == '__main__':
     else:
         exit('Error: unrecognized model')
     empty_net = net_glob
-    print('Model architecture:')
-    print(net_glob)
+    # print('Model architecture:')
+    # print(net_glob)
     net_glob.train()  # switch to training mode
 
     m = max(int(args.frac * args.num_users), 1)
@@ -93,40 +93,47 @@ if __name__ == '__main__':
 
         #<<HE>>
         w_params_encrypted = []
-        for w_param_need_encrypted in w_params_need_encrypted:
-            w_params_encrypted.append(ts.ckks_vector(context, w_param_need_encrypted)) #part1
+        if args.encrypt_percent != 0:
+            for w_param_need_encrypted in w_params_need_encrypted:
+                w_params_encrypted.append(ts.ckks_vector(context, w_param_need_encrypted)) #part1
 
         #<<DP_NOISE>>
-        w_params_obfuscated = [] #for formal attack
-        epsilon = args.epsilon
-        #get min & max
-        minimum = []
-        maximum = []
-        for i in range(len(w_params_non_encrypted)):
-            minimum.append(min(w_params_non_encrypted[i]))
-            maximum.append(max(w_params_non_encrypted[i]))
-        #add noise
         w_params_noised = []
-        for i in range(len(w_params_non_encrypted)):
-            w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
-            w_params_noised.append(w_param_noised) #part2
-            w_params_obfuscated.append(generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_param_noised))
-
-        # formal attack toward: w_params_obfuscated is for attackers
-        for w_param_obfuscated in w_params_obfuscated:
+        if args.encrypt_percent != 1:
+            epsilon = args.epsilon
+            #get min & max
+            minimum = []
+            maximum = []
+            for i in range(len(w_params_non_encrypted)):
+                minimum.append(min(w_params_non_encrypted[i]))
+                maximum.append(max(w_params_non_encrypted[i]))
+            #add noise
+            for i in range(len(w_params_non_encrypted)):
+                w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
+                w_params_noised.append(w_param_noised) #part2
+            
+        # formal SIA attack toward: w_param_obfuscated is for attackers
+        for i in range(len(idxs_users)):
+            w_param_noised = []
+            if args.encrypt_percent != 1:
+                w_param_noised = w_params_noised[i]
+            w_param_obfuscated = generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_param_noised)
             w_locals.append(list_to_model_dict(empty_net.state_dict(), w_param_obfuscated))
+
         SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
         attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
         att_acc_list.append(attack_acc)
         best_att_acc = max(best_att_acc, attack_acc)
 
         #<<SERVER>> aggregation
-        #<HE> 
-        sum_params_encrypted = w_params_encrypted[0] #handle part1
-        for i in range(1, len(w_params_encrypted)):
-            sum_params_encrypted = sum_params_encrypted + w_params_encrypted[i]
-        avg_params_encrypted = sum_params_encrypted * (1/len(w_params_encrypted))
-        avg_params_dencrypted = avg_params_encrypted.decrypt()
+        #<HE>
+        avg_params_dencrypted = []
+        if args.encrypt_percent != 0:
+            sum_params_encrypted = w_params_encrypted[0] #handle part1
+            for i in range(1, len(w_params_encrypted)):
+                sum_params_encrypted = sum_params_encrypted + w_params_encrypted[i]
+            avg_params_encrypted = sum_params_encrypted * (1/len(w_params_encrypted))
+            avg_params_dencrypted = avg_params_encrypted.decrypt()
 
         #<DP>
         avg_w_params_noised = [sum(values) / len(values) for values in zip(*w_params_noised)]
@@ -160,5 +167,5 @@ if __name__ == '__main__':
     print("Testing accuracy of the joint model: {:.2f}".format(acc_test))
     
     print('Random guess baseline of source inference : {:.2f}'.format(1.0/args.num_users*100))
-    print('Average prediction loss based source inference accuracy: {:.2f}'.format(sum(att_acc_list) / len(att_acc_list) if att_acc_list else 0))
     print('Highest prediction loss based source inference accuracy: {:.2f}'.format(best_att_acc))
+    print('Average prediction loss based source inference accuracy: {:.2f}'.format(sum(att_acc_list) / len(att_acc_list) if att_acc_list else 0))
