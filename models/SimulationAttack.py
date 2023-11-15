@@ -30,53 +30,65 @@ class SimulationAttack(object):
     def attack(self, net):
         #server
         all_parameters = model_dict_to_list(self.model_dict)
-        y_loss_choices = []
-        all_encrypted_index = []
-        for choice in range(self.args.server_choices):
-            # 筛选一定percentage的随机元素index。一个choice对应一个新模型
-            encrypted_index = np.random.choice(len(all_parameters), int(self.args.encrypt_percent * len(all_parameters)), replace=False)
-            # print(f'choice{choice}: size{len(encrypted_index)}, detail: {encrypted_index}')
-            all_encrypted_index.append(encrypted_index)
-            y_loss_choice_sum = 0
-            #encrypted_index发送给clients
-            for idx in self.dict_simulation_users:
-                #idx=0,1,...,9
-                idx_tensor = torch.tensor(idx)
-                dataset_local = DataLoader(DatasetSplit(self.dataset, self.dict_simulation_users[idx]), batch_size=self.args.local_bs, shuffle=False)
-
-                decorated_parameters = []
-                encrypted_parameters = []
-                non_encrypted_parameters = []
-                for i in range(len(all_parameters)):
-                    if i in encrypted_index:
-                        encrypted_parameters.append(all_parameters[i])
-                        decorated_parameters.append(random.uniform(-2, 2)) # random -2~-2
-                    else:
-                        non_encrypted_parameters.append(all_parameters[i])
-                        decorated_parameters.append(all_parameters[i])
-                #该client的虚拟模型 vs 该client的真实模型
-                new_model_dict = copy.deepcopy(self.model_dict)
-                new_model_dict = list_to_model_dict(new_model_dict, decorated_parameters)
-                #关键点: 什么样的新模型能够使得结果最大程度的偏离标准答案
-                net.load_state_dict(new_model_dict)
-                net.eval()
-                y_loss_party = []
-                for id, (data, target) in enumerate(dataset_local):
-                    if self.args.gpu != -1:
-                        data, target = data.to('cpu'), target.to('cpu') # data.cuda(), target.cuda()
-                        idx_tensor = idx_tensor.to('cpu') # idx_tensor.cuda()
-                    log_prob = net(data)
-                    loss = nn.CrossEntropyLoss(reduction='none')
-                    y_loss = loss(log_prob, target)
-                    y_loss_party.append(y_loss.cpu().detach().numpy())
-                y_loss_party = np.concatenate(y_loss_party).reshape(-1)
-                y_loss_choice_sum += np.sum(y_loss_party)
-            # print(f'choice{choice} loss_sum:{y_loss_choice_sum}')
-            #各个client循环之后，得到该choice的特征 y_loss_choice_sum
-            y_loss_choices.append(y_loss_choice_sum)
+        result_encrypted_index = []
         
-        #找到y_loss_choices里最大元素的index，所对应的encrypted_index
-        max_index = y_loss_choices.index(max(y_loss_choices))
-        result_encrypted_index = all_encrypted_index[max_index]
-        result_encrypted_index.sort()
+        if self.args.encrypt_percent == 0:
+            result_encrypted_index = []
+        elif self.args.encrypt_percent == 1:
+            result_encrypted_index = list(range(len(all_parameters)))
+        else:
+            y_loss_choices = []
+            all_encrypted_index = []
+            choices = self.args.server_choices
+            for choice in range(choices):
+                # 筛选一定percentage的随机元素index。一个choice对应一个新模型
+                encrypted_index = np.random.choice(len(all_parameters), int(self.args.encrypt_percent * len(all_parameters)), replace=False)
+                # print(f'choice{choice}: size{len(encrypted_index)}, detail: {encrypted_index}')
+                all_encrypted_index.append(encrypted_index)
+                print('.', end='')
+                y_loss_choice_sum = 0
+                #encrypted_index发送给clients
+                for idx in self.dict_simulation_users:
+                    #idx=0,1,...,9
+                    idx_tensor = torch.tensor(idx)
+                    dataset_local = DataLoader(DatasetSplit(self.dataset, self.dict_simulation_users[idx]), batch_size=self.args.local_bs, shuffle=False)
+
+                    decorated_parameters = []
+                    encrypted_parameters = []
+                    non_encrypted_parameters = []
+                    for i in range(len(all_parameters)):
+                        if i in encrypted_index:
+                            encrypted_parameters.append(all_parameters[i])
+                            decorated_parameters.append(random.uniform(-2, 2)) # random -2~-2
+                        else:
+                            non_encrypted_parameters.append(all_parameters[i])
+                            decorated_parameters.append(all_parameters[i])
+                    #该client的虚拟模型 vs 该client的真实模型
+                    new_model_dict = copy.deepcopy(self.model_dict)
+                    new_model_dict = list_to_model_dict(new_model_dict, decorated_parameters)
+                    #关键点: 什么样的新模型能够使得结果最大程度的偏离标准答案
+                    net.load_state_dict(new_model_dict)
+                    net.eval()
+                    y_loss_party = []
+                    for id, (data, target) in enumerate(dataset_local):
+                        if self.args.gpu != -1:
+                            data, target = data.to('cpu'), target.to('cpu') # data.cuda(), target.cuda()
+                            idx_tensor = idx_tensor.to('cpu') # idx_tensor.cuda()
+                        log_prob = net(data)
+                        loss = nn.CrossEntropyLoss(reduction='none')
+                        y_loss = loss(log_prob, target)
+                        y_loss_party.append(y_loss.cpu().detach().numpy())
+                    y_loss_party = np.concatenate(y_loss_party).reshape(-1)
+                    # print(f'len(y_loss_party):{len(y_loss_party)}')
+                    y_loss_choice_sum += np.sum(y_loss_party)
+                # print(f'choice{choice} loss_sum:{y_loss_choice_sum}')
+                #各个client循环之后，得到该choice的特征 y_loss_choice_sum
+                y_loss_choices.append(y_loss_choice_sum)
+            print('')
+            
+            #找到y_loss_choices里最大元素的index，所对应的encrypted_index
+            max_index = y_loss_choices.index(max(y_loss_choices))
+            result_encrypted_index = all_encrypted_index[max_index]
+            result_encrypted_index.sort()
+        
         return result_encrypted_index

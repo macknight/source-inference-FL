@@ -18,20 +18,15 @@ from utils.options import args_parser
 from utils.sampling import split_params, generate_full_param
 from utils.differential_privacy import add_laplace_noise
 
-if __name__ == '__main__':
-    # parse
-    args = args_parser()
-    args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
-    # print(f'args.device:', {args.device})
-    
+def process(args):
     # Load the data set and split the data for the user
     dataset_train, dataset_test, dict_party_user, dict_sample_user, dict_simulation_user = get_dataset(args)
 
     #HE context
     context = ts.context(
                 ts.SCHEME_TYPE.CKKS,
-                poly_modulus_degree=16384, #16384
-                coeff_mod_bit_sizes=[60, 40, 40, 40, 60] #[60, 40, 40, 40, 60]
+                poly_modulus_degree=8192, #8192, 16384
+                coeff_mod_bit_sizes=[60, 40, 40, 60] #[60, 40, 40, 60], [60, 40, 40, 40, 60]
     )
     context.generate_galois_keys()
     context.global_scale = 2**40
@@ -49,7 +44,8 @@ if __name__ == '__main__':
         net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device)
     else:
         exit('Error: unrecognized model')
-    empty_net = net_glob
+    
+    empty_net = copy.deepcopy(net_glob).to(args.device)
     # print('Model architecture:')
     # print(net_glob)
     net_glob.train()  # switch to training mode
@@ -57,17 +53,20 @@ if __name__ == '__main__':
     m = max(int(args.frac * args.num_users), 1)
     idxs_users = np.random.choice(range(args.num_users), m, replace=False)
     idxs_users.sort()
+    # print(f'idxs_users={idxs_users}')
 
     # train
+    print("traning\n")
     best_att_acc = 0
     att_acc_list = []
     for iter in range(args.epochs):
+        print('+++')
         #server attack simulation:
         Simulation_attack = SimulationAttack(args=args, model_dict=net_glob.state_dict(), dataset=dataset_train, dict_simulation_users=dict_simulation_user)
         encrypted_index = Simulation_attack.attack(net=empty_net.to('cpu'))#args.device
-        # print(f'final encrypted_index:{encrypted_index}, size:{len(encrypted_index)}')
-
-        #prepare weights and biases
+        
+        print(f'len(encrypted_index):{len(encrypted_index)}')
+        #prepare weights and biases``
         loss_locals = []
         w_locals = []
         # w_params_all = []
@@ -75,26 +74,25 @@ if __name__ == '__main__':
         w_params_SIA_guessed = []
         w_params_non_encrypted = []
 
-        print(f'idxs_users={idxs_users}')
-
+        print(f'Epoch Round {iter} Start, local train')
         #<<CLIENTS>>
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
-            w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
+            w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device)) #bug fixed: net_glob is changed in SimulationAttack
             loss_locals.append(copy.deepcopy(loss))
             tmp_w = copy.deepcopy(w)
-            # w_locals.append(tmp_w)
             plain_param = model_dict_to_list(tmp_w)
-            # w_params_all.append(plain_param)
+
             tmp_need_encrypted, tmp_non_encrypted, tmp_SIA_guessed = split_params(plain_param, encrypted_index) # => three plain parts
-            w_params_need_encrypted.append(tmp_need_encrypted)
+
+            w_params_need_encrypted.append(tmp_need_encrypted) #HE
             w_params_SIA_guessed.append(tmp_SIA_guessed)
-            w_params_non_encrypted.append(tmp_non_encrypted)
+            w_params_non_encrypted.append(tmp_non_encrypted) #DP
 
         #<<HE>>
-        w_params_encrypted = []
+        w_params_encrypted = []#ciphertexts
         if args.encrypt_percent != 0:
-            for w_param_need_encrypted in w_params_need_encrypted:
+            for w_param_need_encrypted in w_params_need_encrypted: #plaintext
                 w_params_encrypted.append(ts.ckks_vector(context, w_param_need_encrypted)) #part1
 
         #<<DP_NOISE>>
@@ -112,14 +110,13 @@ if __name__ == '__main__':
                 w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
                 w_params_noised.append(w_param_noised) #part2
             
-        # formal SIA attack toward: w_param_obfuscated is for attackers
+        ## formal SIA attack toward: w_param_obfuscated is for attackers
         for i in range(len(idxs_users)):
             w_param_noised = []
             if args.encrypt_percent != 1:
                 w_param_noised = w_params_noised[i]
             w_param_obfuscated = generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_param_noised)
             w_locals.append(list_to_model_dict(empty_net.state_dict(), w_param_obfuscated))
-
         SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
         attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
         att_acc_list.append(attack_acc)
@@ -137,21 +134,22 @@ if __name__ == '__main__':
 
         #<DP>
         avg_w_params_noised = [sum(values) / len(values) for values in zip(*w_params_noised)]
-        # averaged HE ciphertext, averaged DP-noised plaintext => averaged param => w_glob
-        param_glob = generate_full_param(encrypted_index, avg_params_dencrypted, avg_w_params_noised)
+
+        # <AGGREGATION> averaged HE ciphertext + averaged DP-noised plaintext => averaged param => w_glob
+        param_glob = generate_full_param(encrypted_index, avg_params_dencrypted, avg_w_params_noised) ##########################
+
         #param_glob => w_glob
         w_glob = list_to_model_dict(empty_net.state_dict(), param_glob)
 
-        # copy weight to net_glob
+        # copy weight to net_glob, which is sent to clients
         net_glob.load_state_dict(w_glob)
         acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
 
-        #net_glob is updated and send to clients
-
         # print loss
         loss_avg = sum(loss_locals) / len(loss_locals)
-        print('Epoch Round {:3d}, Average training loss {:.3f}'.format(iter, loss_avg))
-        #end of each epoch of args.epochs
+        print(f'Epoch Round {iter} End, Average training loss {loss_avg}')
+        print('---\n')
+        #end of Epoch
 
     # test
     net_glob.eval()
@@ -160,8 +158,6 @@ if __name__ == '__main__':
     # Experimental setting
     exp_details(args)
 
-
-
     print('Experimental result summary:')
     print("Training accuracy of the joint model: {:.2f}".format(acc_train))
     print("Testing accuracy of the joint model: {:.2f}".format(acc_test))
@@ -169,3 +165,18 @@ if __name__ == '__main__':
     print('Random guess baseline of source inference : {:.2f}'.format(1.0/args.num_users*100))
     print('Highest prediction loss based source inference accuracy: {:.2f}'.format(best_att_acc))
     print('Average prediction loss based source inference accuracy: {:.2f}'.format(sum(att_acc_list) / len(att_acc_list) if att_acc_list else 0))
+
+
+if __name__ == '__main__':
+    # parse
+    args = args_parser()
+    args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+    print(f'args.device:', {args.device})
+
+    args.encrypt_percent = 0
+    while args.encrypt_percent <= 1:
+        print(f'encrypt_percent={args.encrypt_percent}\n')
+        process(args)
+        args.encrypt_percent = args.encrypt_percent + 0.1
+        print(f'===========================================\n')
+    

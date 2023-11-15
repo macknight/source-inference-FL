@@ -24,9 +24,10 @@ def args_parser():
     parser.add_argument('--gpu', type=int, default=0, help="GPU ID, -1 for CPU")
     parser.add_argument('--all_clients', default=True, action='store_true', help='aggregation over all clients')
 
-    parser.add_argument('--encrypt_percent', type=float, default=0.1, help="HE encrypted percentage(%)")
-    parser.add_argument('--server_choices', type=int, default=10, help="choice numbers of encrypted index that server giving to clients")
-    parser.add_argument('--num_simulations', type=int, default=12, help="number of training samples for simulating attacks")
-    parser.add_argument('--epsilon', type=float, default=0.1, help="epsilon for differential privacy. 0.01 or 0.1 provide strong DP protection; 0.7 or 1 provide weak DP protection")
+    #HE & DP & Simulation Attack
+    parser.add_argument('--encrypt_percent', type=float, default=0.5, help="HE encrypted percentage(%)")
+    parser.add_argument('--server_choices', type=int, default=20, help="choice numbers of encrypted index that server giving to clients")
+    parser.add_argument('--num_simulations', type=int, default=10, help="number of training samples for simulating attacks")
+    parser.add_argument('--epsilon', type=float, default=0.1, help="epsilon for differential privacy. 0.01 or 0.1 provide strong DP protection but inaccurate; 0.7 or 1 provide weak DP protection but accurate")
     args = parser.parse_args()
     return args
