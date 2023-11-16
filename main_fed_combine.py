@@ -173,10 +173,9 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
 
-    args.encrypt_percent = 0
-    while args.encrypt_percent <= 1:
+    ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    for ratio in ratios:
+        args.encrypt_percent = ratio
         print(f'encrypt_percent={args.encrypt_percent}\n')
         process(args)
-        args.encrypt_percent = args.encrypt_percent + 0.1
         print(f'===========================================\n')
-    
