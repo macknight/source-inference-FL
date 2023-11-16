@@ -72,7 +72,7 @@ def exp_details(args):
 
     print('{} dataset, '.format(args.dataset) + f' has {args.num_classes} classes')
     if args.iid == False:
-        print(f'Level of non-iid data distribution: \u03B1 = {args.alpha}')
+        print(f'Level of non-iid data distribution: _ = {args.alpha}') #\u03b1
     else:
         print('The training data are iid across parties')
     print(f'Number of users    : {args.num_users}')
