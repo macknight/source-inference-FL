@@ -23,15 +23,6 @@ def process(args):
     # Load the data set and split the data for the user
     dataset_train, dataset_test, dict_party_user, dict_sample_user, dict_simulation_user = get_dataset(args)
 
-    #HE context
-    context = ts.context(
-                ts.SCHEME_TYPE.CKKS,
-                poly_modulus_degree=8192, #8192, 16384
-                coeff_mod_bit_sizes=[60, 40, 40, 60] #[60, 40, 40, 60], [60, 40, 40, 40, 60]
-    )
-    context.generate_galois_keys()
-    context.global_scale = 2**40
-
     # setup model
     if args.model == 'cnn' and args.dataset == 'MNIST':
         net_glob = Mnistcnn(args=args).to(args.device)
@@ -89,30 +80,24 @@ def process(args):
 
             tmp_need_encrypted, tmp_non_encrypted, tmp_SIA_guessed = split_params(plain_param, encrypted_index) # => three plain parts
 
-            w_params_need_encrypted.append(tmp_need_encrypted) #HE
-            w_params_SIA_guessed.append(tmp_SIA_guessed)
-            w_params_non_encrypted.append(tmp_non_encrypted) #DP
-
-        #<<HE>>
-        w_params_encrypted = []#ciphertexts
-        if args.encrypt_percent != 0:
-            for w_param_need_encrypted in w_params_need_encrypted: #plaintext
-                w_params_encrypted.append(ts.ckks_vector(context, w_param_need_encrypted)) #part1
+            w_params_need_encrypted.append(tmp_need_encrypted) #DP
+            w_params_non_encrypted.append(tmp_non_encrypted) #plaintext
 
         #<<DP_NOISE>>
-        w_params_noised = []
-        if args.encrypt_percent != 1:
+        w_params_encrypted = []
+        if args.encrypt_percent != 0:
             epsilon = args.epsilon
             #get min & max
             minimum = []
             maximum = []
-            for i in range(len(w_params_non_encrypted)):
-                minimum.append(min(w_params_non_encrypted[i]))
-                maximum.append(max(w_params_non_encrypted[i]))
+            for i in range(len(w_params_need_encrypted)):
+                minimum.append(min(w_params_need_encrypted[i]))
+                maximum.append(max(w_params_need_encrypted[i]))
             #add noise
-            for i in range(len(w_params_non_encrypted)):
-                w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
-                w_params_noised.append(w_param_noised) #part2
+            for i in range(len(w_params_need_encrypted)):
+                w_param_noised = add_laplace_noise(w_params_need_encrypted[i], epsilon, min(minimum), max(maximum))
+                w_params_SIA_guessed.append(w_param_noised) #part1
+                w_params_encrypted.append(w_param_noised) #part1
 
         #record time
         end_time = time.time()
@@ -120,10 +105,7 @@ def process(args):
         
         ## formal SIA attack toward: w_param_obfuscated is for attackers
         for i in range(len(idxs_users)):
-            w_param_noised = []
-            if args.encrypt_percent != 1:
-                w_param_noised = w_params_noised[i]
-            w_param_obfuscated = generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_param_noised)
+            w_param_obfuscated = generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_params_non_encrypted[i])
             w_locals.append(list_to_model_dict(empty_net.state_dict(), w_param_obfuscated))
         SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
         attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device
@@ -132,20 +114,13 @@ def process(args):
 
         start_time = time.time()
         #<<SERVER>> aggregation
-        #<HE>
-        avg_params_dencrypted = []
-        if args.encrypt_percent != 0:
-            sum_params_encrypted = w_params_encrypted[0] #handle part1
-            for i in range(1, len(w_params_encrypted)):
-                sum_params_encrypted = sum_params_encrypted + w_params_encrypted[i]
-            avg_params_encrypted = sum_params_encrypted * (1/len(w_params_encrypted))
-            avg_params_dencrypted = avg_params_encrypted.decrypt()
-
         #<DP>
-        avg_w_params_noised = [sum(values) / len(values) for values in zip(*w_params_noised)]
+        avg_w_params_encrypted = [sum(values) / len(values) for values in zip(*w_params_encrypted)]
+        #<Plaintext>
+        avg_w_params_non_encrypted = [sum(values) / len(values) for values in zip(*w_params_non_encrypted)]
 
         # <AGGREGATION> averaged HE ciphertext + averaged DP-noised plaintext => averaged param => w_glob
-        param_glob = generate_full_param(encrypted_index, avg_params_dencrypted, avg_w_params_noised) ##########################
+        param_glob = generate_full_param(encrypted_index, avg_w_params_encrypted, avg_w_params_non_encrypted) ##########################
 
         #param_glob => w_glob
         w_glob = list_to_model_dict(empty_net.state_dict(), param_glob)
@@ -190,7 +165,7 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
     print(f'args.epsilon:', {args.epsilon})
-    sys.stdout = open(f'{args.epsilon}.txt', 'w')
+    sys.stdout = open(f'main_fed_combine_dp_epsilon={args.epsilon}.txt', 'w')
 
     ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     for ratio in ratios:

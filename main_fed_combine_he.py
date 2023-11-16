@@ -99,10 +99,13 @@ def process(args):
             for w_param_need_encrypted in w_params_need_encrypted: #plaintext
                 w_params_encrypted.append(ts.ckks_vector(context, w_param_need_encrypted)) #part1
 
-        #<<DP_NOISE>>
+        #record time
+        end_time = time.time()
+        execution_time += end_time - start_time
+
+        #<<DP_NOISE:actually plaintext>>
         w_params_noised = []
         if args.encrypt_percent != 1:
-            epsilon = args.epsilon
             #get min & max
             minimum = []
             maximum = []
@@ -111,12 +114,7 @@ def process(args):
                 maximum.append(max(w_params_non_encrypted[i]))
             #add noise
             for i in range(len(w_params_non_encrypted)):
-                w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
-                w_params_noised.append(w_param_noised) #part2
-
-        #record time
-        end_time = time.time()
-        execution_time += end_time - start_time
+                w_params_noised.append(w_params_non_encrypted[i]) #part2 plaintext
         
         ## formal SIA attack toward: w_param_obfuscated is for attackers
         for i in range(len(idxs_users)):
@@ -173,7 +171,6 @@ def process(args):
 
     print('Experimental result summary:')
     print(f'Execution time: {execution_time}')
-    print(f'args.epsilon:', {args.epsilon})
     print(f'args.encrypt_percent:{args.encrypt_percent}')
     
     print("Training accuracy of the joint model: {:.2f}".format(acc_train))
@@ -189,8 +186,7 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
-    print(f'args.epsilon:', {args.epsilon})
-    sys.stdout = open(f'{args.epsilon}.txt', 'w')
+    sys.stdout = open(f'main_fed_combine_he.txt', 'w')
 
     ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     for ratio in ratios:
