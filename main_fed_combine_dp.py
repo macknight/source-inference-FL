@@ -105,7 +105,10 @@ def process(args):
         
         ## formal SIA attack toward: w_param_obfuscated is for attackers
         for i in range(len(idxs_users)):
-            w_param_obfuscated = generate_full_param(encrypted_index, w_params_SIA_guessed[i], w_params_non_encrypted[i])
+            w_param_SIA_guessed = []
+            if args.encrypt_percent != 0:
+               w_param_SIA_guessed = w_params_SIA_guessed[i]
+            w_param_obfuscated = generate_full_param(encrypted_index, w_param_SIA_guessed, w_params_non_encrypted[i])
             w_locals.append(list_to_model_dict(empty_net.state_dict(), w_param_obfuscated))
         SIA_attack = SIA(args=args, w_locals=w_locals, dataset=dataset_train, dict_sia_users=dict_sample_user)
         attack_acc = SIA_attack.attack(net=empty_net.to('cpu'))#args.device

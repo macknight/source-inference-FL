@@ -83,6 +83,7 @@ def process(args):
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
             w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device)) #bug fixed: net_glob is changed in SimulationAttack
+
             loss_locals.append(copy.deepcopy(loss))
             tmp_w = copy.deepcopy(w)
             plain_param = model_dict_to_list(tmp_w)
@@ -102,7 +103,8 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
-
+        print(f'Operation time: {execution_time}')
+        
         #<<DP_NOISE:actually plaintext>>
         w_params_noised = []
         if args.encrypt_percent != 1:
@@ -154,6 +156,7 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
+        print(f'Operation time: {execution_time}')
 
         acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
         # print loss
