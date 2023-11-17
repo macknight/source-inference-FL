@@ -154,7 +154,13 @@ def process(args):
             avg_params_encrypted = sum_params_encrypted * (1/len(w_params_encrypted))
             avg_params_dencrypted = avg_params_encrypted.decrypt()
 
+        #record time
+        end_time = time.time()
+        execution_time += end_time - start_time
+        print(f'Operation time: {end_time - start_time}')
+
         #<DP>
+        start_time = time.time()
         avg_w_params_noised = [sum(values) / len(values) for values in zip(*w_params_noised)]
 
         # <AGGREGATION> averaged HE ciphertext + averaged DP-noised plaintext => averaged param => w_glob
