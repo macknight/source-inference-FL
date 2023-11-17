@@ -94,6 +94,11 @@ def process(args):
             w_params_SIA_guessed.append(tmp_SIA_guessed)
             w_params_non_encrypted.append(tmp_non_encrypted) #DP
 
+        end_time = time.time()
+        execution_time += end_time - start_time
+        print(f'Operation time: {end_time - start_time}')
+
+        start_time = time.time()
         #<<HE>>
         w_params_encrypted = []#ciphertexts
         if args.encrypt_percent != 0:
@@ -103,8 +108,8 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
-        print(f'Operation time: {execution_time}')
-        
+        print(f'Operation time: {end_time - start_time}')
+
         #<<DP_NOISE:actually plaintext>>
         w_params_noised = []
         if args.encrypt_percent != 1:
@@ -156,7 +161,7 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
-        print(f'Operation time: {execution_time}')
+        print(f'Operation time: {end_time - start_time}')
 
         acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
         # print loss

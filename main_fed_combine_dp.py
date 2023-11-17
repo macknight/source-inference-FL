@@ -83,6 +83,12 @@ def process(args):
             w_params_need_encrypted.append(tmp_need_encrypted) #DP
             w_params_non_encrypted.append(tmp_non_encrypted) #plaintext
 
+        #record time
+        end_time = time.time()
+        execution_time += end_time - start_time
+        print(f'Operation time: {end_time - start_time}')
+
+        start_time = time.time()
         #<<DP_NOISE>>
         w_params_encrypted = []
         if args.encrypt_percent != 0:
@@ -102,6 +108,7 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
+        print(f'Operation time: {end_time - start_time}')
         
         ## formal SIA attack toward: w_param_obfuscated is for attackers
         for i in range(len(idxs_users)):
@@ -134,6 +141,7 @@ def process(args):
         #record time
         end_time = time.time()
         execution_time += end_time - start_time
+        print(f'Operation time: {end_time - start_time}')
 
         acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
         # print loss
