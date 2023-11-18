@@ -209,14 +209,21 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
-    print(f'args.epsilon:', {args.epsilon})
-    sys.stdout = open(f'{args.epsilon}.txt', 'w')
+    
+    sys.stdout = open(f'main_fed_combine.txt', 'w')
 
-    ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    for ratio in ratios:
-        args.encrypt_percent = ratio
-        print(f'encrypt_percent={args.encrypt_percent}\n')
-        process(args)
-        print(f'===========================================\n')
+    epsilons = [0.01, 0.1, 1, 10, 100]
+    for epsilon in epsilons:
+        args.epsilon = epsilon
+        print(f'epsilon={args.epsilon}===========================\n')
+
+        ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        for ratio in ratios:
+            args.encrypt_percent = ratio
+            print(f'encrypt_percent={args.encrypt_percent}-------\n')
+            process(args)
+            print(f'-------encrypt_percent={args.encrypt_percent}\n')
+        
+        print(f'===========================epsilon={args.epsilon}\n')
     
     sys.stdout.close()
