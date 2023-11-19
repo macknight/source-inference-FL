@@ -42,7 +42,7 @@ def process(args):
         img_size = dataset_train[0][0].shape
         for x in img_size:
             len_in *= x
-        net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device)
+        net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device) #14210
     else:
         exit('Error: unrecognized model')
     

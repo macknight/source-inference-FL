@@ -60,7 +60,9 @@ class SIA(object):
                 y_loss_all.append(y_loss_party)
 
             #y_loss_all has {args.num_users} elements, each element has 100 floating numbers
-            y_loss_all = torch.tensor(y_loss_all).to(self.args.device) # turn python list to pytorch tensor
+            y_loss_all = np.array(y_loss_all)
+            y_loss_all = torch.from_numpy(y_loss_all).to(self.args.device)
+
             index_of_min_loss = y_loss_all.min(0, keepdim=True)[1] # [1] return the indexes
             correct_local = index_of_min_loss.eq(
                 idx_tensor.repeat_interleave(len(dataset_local.dataset))).long().cpu().sum()
