@@ -178,7 +178,7 @@ if __name__ == '__main__':
     
     sys.stdout = open(f'main_fed_combine_dp.txt', 'w')
 
-    epsilons = [0.01, 0.1, 1, 10, 100]
+    epsilons = [1.31, 1.4, 1.48]#[0.01, 0.1, 1, 10, 100]
     for epsilon in epsilons:
         args.epsilon = epsilon
         print(f'epsilon={args.epsilon}===========================\n')
