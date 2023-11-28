@@ -215,7 +215,7 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
     
-    sys.stdout = open(f'main_fed_combine.txt', 'w')
+    sys.stdout = open(f'main_fed_combine_shuffle.txt', 'w')
 
     epsilons = [1.31, 1.4, 1.48]#[0.01, 0.1, 1, 10, 100]
     for epsilon in epsilons:
