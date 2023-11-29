@@ -48,10 +48,11 @@ def averaged_test_fun(net_g, datatest, args):
     for i in range(max_loop_number):
         acc, loss = test_fun(net_g, datatest, args)
         acc_list.append(acc)
-        std = calculate_standard_deviation(acc_list)
-        standard_error = std * 1.0 / math.sqrt(len(acc_list))
-        if standard_error <= 0.01 and i >=100:
-            break
+        if len(acc_list) > 1:
+            std = calculate_standard_deviation(acc_list)
+            standard_error = std * 1.0 / math.sqrt(len(acc_list))
+            if standard_error <= 0.01 and i >=100:
+                break
         i = i + 1
     return acc_list[-1]
 
