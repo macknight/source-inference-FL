@@ -1,4 +1,5 @@
 import torch.nn.functional as F
+import math
 from torch.utils.data import DataLoader
 
 
@@ -23,3 +24,35 @@ def test_fun(net_g, datatest, args):
     test_loss /= len(data_loader.dataset)
     accuracy = 100.00 * correct / len(data_loader.dataset)
     return accuracy, test_loss
+
+import math
+
+def calculate_standard_deviation(numbers):
+    if len(numbers) < 2:
+        raise ValueError("At least two numbers are required")
+
+    sum_numbers = sum(numbers)
+    mean = sum_numbers / len(numbers)
+
+    squared_differences = sum((num - mean) ** 2 for num in numbers)
+
+    variance = squared_differences / (len(numbers) - 1)
+    standard_deviation = math.sqrt(variance)
+
+    return standard_deviation
+
+
+def averaged_test_fun(net_g, datatest, args):
+    acc_list = []
+    max_loop_number = 1000
+    for i in range(max_loop_number):
+        acc, loss = test_fun(net_g, datatest, args)
+        acc_list.append(acc)
+        std = calculate_standard_deviation(acc_list)
+        standard_error = std * 1.0 / math.sqrt(len(acc_list))
+        if standard_error <= 0.01 and i >=100:
+            break
+        i = i + 1
+    return acc_list[-1]
+
+    

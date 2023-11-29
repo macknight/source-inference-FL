@@ -8,7 +8,7 @@ from models.Fed import FedAvg
 from models.Nets import MLP, Mnistcnn
 from models.Sia import SIA
 from models.Update import LocalUpdate
-from models.test import test_fun
+from models.test import test_fun, averaged_test_fun
 from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
 from utils.differential_privacy import add_laplace_noise
@@ -107,8 +107,9 @@ if __name__ == '__main__':
 
     # 测试
     net_glob.eval()
-    acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
-    acc_test, loss_test = test_fun(net_glob, dataset_test, args)
+    
+    acc_train = averaged_test_fun(net_glob, dataset_train, args)
+    acc_test = averaged_test_fun(net_glob, dataset_test, args)
     # 实验设置
     exp_details(args)
 

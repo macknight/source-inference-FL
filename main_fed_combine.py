@@ -13,7 +13,7 @@ from models.Nets import MLP, Mnistcnn, model_dict_to_list, list_to_model_dict
 from models.Sia import SIA
 from models.SimulationAttack import SimulationAttack
 from models.Update import LocalUpdate
-from models.test import test_fun
+from models.test import test_fun, averaged_test_fun
 from utils.dataset import get_dataset, exp_details
 from utils.options import args_parser
 from utils.sampling import split_params, generate_full_param
@@ -186,8 +186,9 @@ def process(args):
 
     # test
     net_glob.eval()
-    acc_train, loss_train_ = test_fun(net_glob, dataset_train, args)
-    acc_test, loss_test = test_fun(net_glob, dataset_test, args)
+    
+    acc_train = averaged_test_fun(net_glob, dataset_train, args)
+    acc_test = averaged_test_fun(net_glob, dataset_test, args)
     # Experimental setting
     exp_details(args)
 
@@ -212,12 +213,12 @@ if __name__ == '__main__':
     
     sys.stdout = open(f'main_fed_combine.txt', 'w')
 
-    epsilons = [1.31, 1.4, 1.48]#[0.01, 0.1, 1, 10, 100]
+    epsilons = [1.48]#[1.31, 1.4, 1.48]
     for epsilon in epsilons:
         args.epsilon = epsilon
         print(f'epsilon={args.epsilon}===========================\n')
 
-        ratios = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        ratios = [0, 0.2, 0.4, 0.6, 0.8, 1] #[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         for ratio in ratios:
             args.encrypt_percent = ratio
             print(f'encrypt_percent={args.encrypt_percent}-------\n')
