@@ -6,7 +6,7 @@ def args_parser():
     # federated arguments
     parser.add_argument('--epochs', type=int, default=20, help="Global rounds of training")
     parser.add_argument('--num_users', type=int, default=10, help="number of users in FL: K")
-    parser.add_argument('--num_samples', type=int, default=500,
+    parser.add_argument('--num_samples', type=int, default=1000,
                         help="number of training samples selected from each local training set")
     parser.add_argument('--alpha', type=float, default=10, help="level of non-iid data distribution: alpha")
     parser.add_argument('--frac', type=float, default=1, help="the fraction of clients: C")

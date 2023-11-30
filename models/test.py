@@ -44,7 +44,7 @@ def calculate_standard_deviation(numbers):
 
 def averaged_test_fun(net_g, datatest, args):
     acc_list = []
-    max_loop_number = 1000
+    max_loop_number = 2000
     for i in range(max_loop_number):
         acc, loss = test_fun(net_g, datatest, args)
         acc_list.append(acc)
