@@ -52,8 +52,11 @@ def averaged_test_fun(net_g, datatest, args):
             std = calculate_standard_deviation(acc_list)
             standard_error = std * 1.0 / math.sqrt(len(acc_list))
             if standard_error <= 0.01 and i >=100:
+                # print(f'break averaged_test_fun_i:{i}')
                 break
+            # print(f'len(acc_list):{len(acc_list)}')
         i = i + 1
-    return acc_list[-1]
+        # print(acc_list) #all elements are the same
+    return sum(acc_list) / len(acc_list)
 
-    
+    #python main_fed.py --dataset=Synthetic --model=mlp --alpha=1 --num_users=10 --local_ep=5

@@ -1,6 +1,11 @@
-import syft as sy
+# import syft as sy
 import tenseal as ts
 import torch
+import sys
+
+acc_list = [0.05, 2]
+print(sum(acc_list)/len(acc_list))
+sys.exit(-1)
 
 # 创建 PySyft hook 和本地工作机,from syft0.3.0
 local_worker = sy.VirtualMachine(name="local_worker")

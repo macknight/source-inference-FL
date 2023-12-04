@@ -106,8 +106,8 @@ def process(args):
     # testing
     net_glob.eval()
 
-    acc_train = averaged_test_fun(net_glob, dataset_train, args)
-    acc_test = averaged_test_fun(net_glob, dataset_test, args)
+    acc_train, loss_train = test_fun(net_glob, dataset_train, args)
+    acc_test, loss_test = test_fun(net_glob, dataset_test, args)
     # experiment setting
     exp_details(args)
 

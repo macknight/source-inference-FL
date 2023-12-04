@@ -4,6 +4,10 @@ import tenseal as ts
 def decrypt(enc):
     return enc.decrypt().tolist()
 
+
+acc_list = [0.05, 2]
+print(sum(acc_list)/len(acc_list))
+
 # Setup TenSEAL context
 context = ts.context(
             ts.SCHEME_TYPE.CKKS,
