@@ -75,7 +75,7 @@ def synthetic_iid(dataset, num_users, num_samples, num_simulations):
 
 def split_params(w_params_all, encrypted_index=None):
     if encrypted_index is None:
-        return w_params_all, []  # 如果 encrypted_index 为 None，则返回原始列表和空列表
+        return w_params_all, []
 
     need_encrypted_params = []
     non_encrypted_params = []

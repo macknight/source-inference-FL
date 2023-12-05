@@ -58,5 +58,3 @@ def averaged_test_fun(net_g, datatest, args):
         i = i + 1
         # print(acc_list) #all elements are the same
     return sum(acc_list) / len(acc_list)
-
-    #python main_fed.py --dataset=Synthetic --model=mlp --alpha=1 --num_users=10 --local_ep=5

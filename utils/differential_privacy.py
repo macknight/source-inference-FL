@@ -13,7 +13,7 @@ def add_laplace_noise(data, epsilon, lower_bound, upper_bound):
     Returns:
     - A new list with Laplace noise added to each element.
 
-    在实践中，ϵ 的值通常在 0.01 到 1 的范围内，尽管在某些情况下也可能使用更高或更低的值。较小的值（如 0.01、0.1）提供较强的隐私保护，但可能会显著降低数据的实用性。较高的值（如 0.7、1）提供较弱的隐私保护，但保留了更多的数据实用性
+    In practice, the value of epsilon (ϵ) is usually within the range of 0.01 to 1, although higher or lower values may also be used in certain circumstances. Smaller values, such as 0.01 or 0.1, provide stronger privacy protection but may significantly reduce the utility of the data. Higher values, like 0.7 or 1, offer weaker privacy protection but preserve more data utility.
     """
     scale = 1.0 / epsilon
     noisy_data = []

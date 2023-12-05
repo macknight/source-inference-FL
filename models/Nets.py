@@ -3,7 +3,6 @@ from torch import nn
 import torch.nn.functional as F
 import copy
 
-#14210
 class MLP(nn.Module):
     def __init__(self, dim_in, dim_hidden, dim_out):
         super(MLP, self).__init__()
@@ -49,18 +48,13 @@ def model_dict_to_list(model_dict):
 
 
 def list_to_model_dict(model_dict, plain_list):
-    # 创建一个新的状态字典对象，用于存储重构后的参数
     new_model_dict = copy.deepcopy(model_dict)
 
-    # 从一维列表 all_parameters 中还原出结构与 w_glob 一致的参数
     param_index = 0
     for key, value in new_model_dict.items():
         if isinstance(value, torch.Tensor):
-            # 获取张量的形状
             shape = value.shape
-            # 从 all_parameters 中提取相同形状的元素
             new_value = torch.tensor(plain_list[param_index:param_index+value.numel()])
-            # 将提取的元素还原到新的状态字典中
             new_model_dict[key] = new_value.view(shape)
             param_index += value.numel()
     
