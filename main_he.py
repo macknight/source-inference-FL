@@ -61,7 +61,7 @@ def process(args):
         print("Aggregation over all clients")
         encrypted_w_locals = [encrypted_w_glob for i in range(args.num_users)]
 
-    # 记录开始时间
+    # initial settings
     execution_time = 0
     # train
     print("traning\n")
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
-    sys.stdout = open(f'main_fed_he.txt', 'w')
+    sys.stdout = open(f'main_he.txt', 'w')
 
     process(args)
     print(f'===========================================\n')

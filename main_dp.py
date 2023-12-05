@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import torch
-import pydp as dp  # 导入 PyDP 模块
+import pydp as dp
 from pydp.algorithms.laplacian import BoundedSum
 
 from models.Fed import FedAvg
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     empty_net = net_glob
     print('Model architecture:')
     print(net_glob)
-    net_glob.train()  # 将神经网络模型 net_glob 设置为训练模式
+    net_glob.train()
 
     # 复制权重
     w_glob = net_glob.state_dict()

@@ -42,7 +42,7 @@ def process(args):
         img_size = dataset_train[0][0].shape
         for x in img_size:
             len_in *= x
-        net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device) #14210
+        net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device)
     else:
         exit('Error: unrecognized model')
     
@@ -93,7 +93,6 @@ def process(args):
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_party_user[idx])
                 w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device)) #bug fixed: net_glob is changed in SimulationAttack
-
                 loss_locals.append(copy.deepcopy(loss))
                 tmp_w = copy.deepcopy(w)
                 plain_param = model_dict_to_list(tmp_w)
@@ -104,6 +103,7 @@ def process(args):
                 w_params_SIA_guessed.append(tmp_SIA_guessed)
                 w_params_non_encrypted.append(tmp_non_encrypted) #DP
 
+            #record time
             end_time = time.time()
             execution_time += end_time - start_time
             print(f'Operation time: {end_time - start_time}')
@@ -120,9 +120,11 @@ def process(args):
             execution_time += end_time - start_time
             print(f'Operation time: {end_time - start_time}')
 
-            #<<DP_NOISE:actually plaintext>>
+            start_time = time.time()
+            #<<DP_NOISE>>
             w_params_noised = []
             if args.encrypt_percent != 1:
+                epsilon = args.epsilon
                 #get min & max
                 minimum = []
                 maximum = []
@@ -131,7 +133,13 @@ def process(args):
                     maximum.append(max(w_params_non_encrypted[i]))
                 #add noise
                 for i in range(len(w_params_non_encrypted)):
-                    w_params_noised.append(w_params_non_encrypted[i]) #part2 plaintext
+                    w_param_noised = add_laplace_noise(w_params_non_encrypted[i], epsilon, min(minimum), max(maximum))
+                    w_params_noised.append(w_param_noised) #part2
+
+            #record time
+            end_time = time.time()
+            execution_time += end_time - start_time
+            print(f'Operation time: {end_time - start_time}')
             
             ## formal SIA attack toward: w_param_obfuscated is for attackers
             for i in range(len(idxs_users)):
@@ -156,7 +164,13 @@ def process(args):
                 avg_params_encrypted = sum_params_encrypted * (1/len(w_params_encrypted))
                 avg_params_dencrypted = avg_params_encrypted.decrypt()
 
+            #record time
+            end_time = time.time()
+            execution_time += end_time - start_time
+            print(f'Operation time: {end_time - start_time}')
+
             #<DP>
+            start_time = time.time()
             avg_w_params_noised = [sum(values) / len(values) for values in zip(*w_params_noised)]
 
             # <AGGREGATION> averaged HE ciphertext + averaged DP-noised plaintext => averaged param => w_glob
@@ -183,7 +197,7 @@ def process(args):
 
         # test
         net_glob.eval()
-
+        
         acc_train, loss_train = test_fun(net_glob, dataset_train, args)
         acc_test, loss_test = test_fun(net_glob, dataset_test, args)
 
@@ -193,11 +207,13 @@ def process(args):
         total_acc_test += acc_test
         total_attack_success_rate += sum(att_acc_list) / len(att_acc_list)
 
+        
     # Experimental setting
     exp_details(args)
-
+    
     print('Experimental result summary:')
     print(f'args.encrypt_percent:{args.encrypt_percent}')
+    print(f'args.epsilon:', {args.epsilon})
 
     print('Execution time: {:.2f}'.format(total_time / duplication))
     print("Training accuracy of the joint model: {:.2f}".format(total_acc_train / duplication))
@@ -213,13 +229,21 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f'args.device:', {args.device})
-    sys.stdout = open(f'main_fed_combine_he.txt', 'w')
+    
+    sys.stdout = open(f'main_fed_combine_he_dp.txt', 'w')
 
-    ratios = [0, 0.2, 0.4, 0.6, 0.8, 1]
-    for ratio in ratios:
-        args.encrypt_percent = ratio
-        print(f'encrypt_percent={args.encrypt_percent}\n')
-        process(args)
-        print(f'===========================================\n')
+    epsilons = [1.48]
+    for epsilon in epsilons:
+        args.epsilon = epsilon
+        print(f'epsilon={args.epsilon}===========================\n')
+
+        ratios = [0, 0.2, 0.4, 0.6, 0.8, 1]
+        for ratio in ratios:
+            args.encrypt_percent = ratio
+            print(f'encrypt_percent={args.encrypt_percent}-------\n')
+            process(args)
+            print(f'-------encrypt_percent={args.encrypt_percent}\n')
+        
+        print(f'===========================epsilon={args.epsilon}\n')
     
     sys.stdout.close()

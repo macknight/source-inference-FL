@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import torch
-import pydp as dp  # 导入 PyDP 模块
+import pydp as dp
 import sys
 import random
 import tenseal as ts
@@ -47,7 +47,7 @@ def process(args):
     idxs_users.sort()
     # print(f'idxs_users={idxs_users}')
 
-    # 记录开始时间
+    # initial settings
     execution_time = 0
     # train
     print("traning\n")
@@ -179,12 +179,12 @@ if __name__ == '__main__':
     
     sys.stdout = open(f'main_fed_combine_dp.txt', 'w')
 
-    epsilons = [1.48]#[1.31, 1.4, 1.48]
+    epsilons = [1.48]
     for epsilon in epsilons:
         args.epsilon = epsilon
         print(f'epsilon={args.epsilon}===========================\n')
 
-        ratios = [0, 0.2, 0.4, 0.6, 0.8, 1] #[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        ratios = [0, 0.2, 0.4, 0.6, 0.8, 1]
         for ratio in ratios:
             args.encrypt_percent = ratio
             print(f'encrypt_percent={args.encrypt_percent}-------\n')

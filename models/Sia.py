@@ -44,22 +44,13 @@ class SIA(object):
                         data, target = data.to('cpu'), target.to('cpu') # data.cuda(), target.cuda()
                         idx_tensor = idx_tensor.to('cpu') # idx_tensor.cuda()
                     log_prob = net(data)
-                    # {args.local_bs}=12
-                    # print(data.shape) #torch.Size([12, 60])
-                    # print(target.shape) #torch.Size([12])
-                    # print(log_prob.shape) #torch.Size([12, 10])
-                    # print(target) #tensor([6, 9, 0, 0, 3, 8, 6, 6, 8, 8, 6, 6])
                     # prediction loss based attack: get the prediction loss of the target training sample
                     loss = nn.CrossEntropyLoss(reduction='none')
                     y_loss = loss(log_prob, target)
-                    # print(y_loss.shape) #torch.Size([12]),.....,torch.Size([12]),torch.Size([4])
                     y_loss_party.append(y_loss.cpu().detach().numpy()) # turn torch into numpy array
-                # print(len(y_loss_party)) # size=9
                 y_loss_party = np.concatenate(y_loss_party).reshape(-1)
-                # print(len(y_loss_party)) # size=100
                 y_loss_all.append(y_loss_party)
 
-            #y_loss_all has {args.num_users} elements, each element has 100 floating numbers
             y_loss_all = np.array(y_loss_all)
             y_loss_all = torch.from_numpy(y_loss_all).to(self.args.device)
 
@@ -71,6 +62,5 @@ class SIA(object):
 
         # calculate source inference attack accuracy
         accuracy_sia = 100.00 * correct_total / len_set
-        print('Prediction loss based source inference attack accuracy: {}/{} ({:.2f}%)'.format(correct_total, len_set,
-                                                                                                 accuracy_sia))
+        # print('Prediction loss based source inference attack accuracy: {}/{} ({:.2f}%)'.format(correct_total, len_set, accuracy_sia))
         return accuracy_sia
