@@ -63,7 +63,7 @@ def process(args):
     total_attack_success_rate = 0
     total_loss_list = [0] * args.epochs
 
-    duplication = 10
+    duplication = 5
     for i in range(duplication):
         execution_time = 0
         acc_train = 0
@@ -205,7 +205,7 @@ def process(args):
     print('Average attack success rate: {:.2f}'.format(total_attack_success_rate / duplication))
     final_total_loss_list = [element / duplication for element in total_loss_list]
     print(f'Average training loss of {args.epochs} iterations:')
-    print(', '.join(['{:.2f}'.format(element) for element in final_total_loss_list]))
+    print(', '.join(['{:.16f}'.format(element) for element in final_total_loss_list]))
 
 
 if __name__ == '__main__':
