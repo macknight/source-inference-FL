@@ -63,7 +63,7 @@ def process(args):
     total_attack_success_rate = 0
     total_loss_list = [0] * args.epochs
 
-    duplication = 5
+    duplication = 2
     for i in range(duplication):
         execution_time = 0
         acc_train = 0
